@@ -1,0 +1,8 @@
+{
+  "name": "assess-rfe",
+  "description": "Assess RFEs against quality criteria using a structured rubric",
+  "version": "1.0.0",
+  "author": {
+    "name": "Jason Greene"
+  }
+}
