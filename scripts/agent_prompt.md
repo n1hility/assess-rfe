@@ -88,6 +88,7 @@ RFEs ideally map to ~1 RHAISTRAT feature.
 - H=1: "Propose a shorter-term solution: package a second image with models baked in. Longer term: enable external provider configuration." → Suggests specific approaches but doesn't fully mandate.
 - H=2: "Deploy models using llm-d with external route exposure, matching existing KServe serving runtime behavior." → Platform vocabulary, not architecture prescription.
 - H=2: "Users can explicitly clear their vector database state and start fresh." → Describes the need without prescribing implementation.
+- H=2: "Expose REST API endpoints for programmatic model creation." → API surface is WHAT, not architecture.
 
 #### Not a task
 - T=0: "Rename Trustyai-explainability to TrustyAI" with description "Look at the title." → Pure housekeeping. No customer-facing need.
