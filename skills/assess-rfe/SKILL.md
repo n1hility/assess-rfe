@@ -153,6 +153,7 @@ Add to your user or project `.claude/settings.json`:
       "Bash(python3 <PLUGIN_PATH>/scripts/check_progress.py:*)",
       "Bash(python3 <PLUGIN_PATH>/scripts/parse_results.py:*)",
       "Bash(python3 <PLUGIN_PATH>/scripts/summarize_run.py:*)",
+      "Bash(python3 <PLUGIN_PATH>/scripts/export_rubric.py:*)",
       "Bash(mkdir:*)",
       "Bash(ls:*)",
       "mcp__atlassian__getJiraIssue",
