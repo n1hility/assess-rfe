@@ -48,7 +48,7 @@ assessments/RHAIRFE/                  # in the project directory (persistent)
 Detect the input type:
 - **Jira issue key** (matches `[A-Z]+-\d+`): Try MCP first, then fall back to the REST API:
   1. **Try MCP:** Call `mcp__atlassian__getJiraIssue` with the key and `cloudId="https://redhat.atlassian.net"`. If the call succeeds, extract the summary and description.
-  2. **Fallback to REST API:** If the MCP call fails (tool not available, connection error, or any other error), fall back to the Jira REST API by running `python3 {PLUGIN_ROOT}/scripts/fetch_single.py {KEY}`. This requires `JIRA_SERVER`, `JIRA_USER`, and `JIRA_TOKEN` environment variables. The script fetches the issue, converts ADF to markdown, and writes it directly to `/tmp/rfe-assess/single/{KEY}.md`. Parse its output for `ENV_OK=false` / `ENV_MISSING=...` — if env vars are missing, prompt the user to set them (same guidance as Phase 0 of bulk mode). If the script succeeds, skip the Write step below since the script already wrote the file.
+  2. **Fallback to REST API:** If the MCP call fails (tool not available, connection error, or any other error), fall back to the Jira REST API by running `python3 {PLUGIN_ROOT}/scripts/fetch_single.py {KEY}`. This requires `JIRA_SERVER` (or `JIRA_URL`/`JIRA_BASE_URL`), `JIRA_USER` (or `JIRA_EMAIL`), and `JIRA_TOKEN` (or `JIRA_API_TOKEN`) environment variables. The script fetches the issue, converts ADF to markdown, and writes it directly to `/tmp/rfe-assess/single/{KEY}.md`. Parse its output for `ENV_OK=false` / `ENV_MISSING=...` — if env vars are missing, prompt the user to set them (same guidance as Phase 0 of bulk mode). If the script succeeds, skip the Write step below since the script already wrote the file.
 - **File path** (starts with `/` or `./` or `~`, or exists on disk): Read the file contents.
 - **URL** (starts with `http://` or `https://`): Fetch the content.
 - **Raw text**: Use the input directly as the content to assess.
@@ -64,10 +64,10 @@ Then assess:
 **Phase 0: Preflight checks.**
 - Run `python3 {PLUGIN_ROOT}/scripts/preflight.py RHAIRFE` to check environment variables and current run state. Parse the output:
   - `ENV_OK=true/false` and `ENV_MISSING=...` — if env vars are missing, prompt the user:
-    - `JIRA_SERVER`: The Jira instance URL (e.g., `https://redhat.atlassian.net`)
-    - `JIRA_USER`: Their Jira email address
-    - `JIRA_TOKEN`: A Jira API token (created at https://id.atlassian.com/manage-profile/security/api-tokens)
-    - Suggest they set them by typing `! export JIRA_SERVER=... JIRA_USER=... JIRA_TOKEN=...` in the prompt, or add them to their shell profile for persistence.
+    - `JIRA_SERVER` (or `JIRA_URL` or `JIRA_BASE_URL`): The Jira instance URL (e.g., `https://redhat.atlassian.net`)
+    - `JIRA_USER` (or `JIRA_EMAIL`): Their Jira email address
+    - `JIRA_TOKEN` (or `JIRA_API_TOKEN`): A Jira API token (created at https://id.atlassian.com/manage-profile/security/api-tokens)
+    - Suggest they set them by typing `! export JIRA_SERVER=... JIRA_USER=... JIRA_TOKEN=...` in the prompt, or add them to their shell profile for persistence. The alternative names `JIRA_EMAIL` and `JIRA_API_TOKEN` are also accepted.
     - Do not proceed until all three are confirmed set (re-run preflight to verify).
   - `CACHE_COUNT=N` — number of cached issues (0 means dump_jira.py hasn't been run yet)
   - `CURRENT_RUN=path/none`, `CURRENT_ASSESSED=N`, `CURRENT_COMPLETE=true/false` — existing run state

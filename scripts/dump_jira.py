@@ -193,12 +193,12 @@ def main():
     parser.add_argument("project", help="Jira project key (e.g. PROJ)")
     parser.add_argument("-o", "--output-dir", default=None,
                         help="Output directory (default: /tmp/rfe-assess/<PROJECT>/)")
-    parser.add_argument("-s", "--server", default=os.environ.get("JIRA_SERVER"),
-                        help="Jira server URL (or set JIRA_SERVER env var)")
-    parser.add_argument("-u", "--user", default=os.environ.get("JIRA_USER"),
-                        help="Jira username/email (or set JIRA_USER env var)")
-    parser.add_argument("-t", "--token", default=os.environ.get("JIRA_TOKEN"),
-                        help="Jira API token (or set JIRA_TOKEN env var)")
+    parser.add_argument("-s", "--server", default=os.environ.get("JIRA_SERVER") or os.environ.get("JIRA_URL") or os.environ.get("JIRA_BASE_URL"),
+                        help="Jira server URL (or set JIRA_SERVER/JIRA_URL/JIRA_BASE_URL env var)")
+    parser.add_argument("-u", "--user", default=os.environ.get("JIRA_USER") or os.environ.get("JIRA_EMAIL"),
+                        help="Jira username/email (or set JIRA_USER/JIRA_EMAIL env var)")
+    parser.add_argument("-t", "--token", default=os.environ.get("JIRA_TOKEN") or os.environ.get("JIRA_API_TOKEN"),
+                        help="Jira API token (or set JIRA_TOKEN/JIRA_API_TOKEN env var)")
     args = parser.parse_args()
 
     server = args.server

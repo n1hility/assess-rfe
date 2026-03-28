@@ -27,9 +27,9 @@ def main():
 
     key = sys.argv[1]
 
-    server = os.environ.get("JIRA_SERVER")
-    user = os.environ.get("JIRA_USER")
-    token = os.environ.get("JIRA_TOKEN")
+    server = os.environ.get("JIRA_SERVER") or os.environ.get("JIRA_URL") or os.environ.get("JIRA_BASE_URL")
+    user = os.environ.get("JIRA_USER") or os.environ.get("JIRA_EMAIL")
+    token = os.environ.get("JIRA_TOKEN") or os.environ.get("JIRA_API_TOKEN")
 
     if not all([server, user, token]):
         print("ENV_OK=false")

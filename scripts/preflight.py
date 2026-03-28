@@ -19,11 +19,14 @@ def main():
 
     project = sys.argv[1]
 
-    # Check env vars
+    # Check env vars (accept common alternative names)
     missing = []
-    for var in ("JIRA_SERVER", "JIRA_USER", "JIRA_TOKEN"):
-        if not os.environ.get(var):
-            missing.append(var)
+    if not (os.environ.get("JIRA_SERVER") or os.environ.get("JIRA_URL") or os.environ.get("JIRA_BASE_URL")):
+        missing.append("JIRA_SERVER")
+    if not (os.environ.get("JIRA_USER") or os.environ.get("JIRA_EMAIL")):
+        missing.append("JIRA_USER")
+    if not (os.environ.get("JIRA_TOKEN") or os.environ.get("JIRA_API_TOKEN")):
+        missing.append("JIRA_TOKEN")
 
     print(f"ENV_OK={'true' if not missing else 'false'}")
     if missing:
