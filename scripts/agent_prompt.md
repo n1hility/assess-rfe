@@ -82,6 +82,15 @@ RFEs ideally map to ~1 RHAISTRAT feature.
    they span. Sharing a category or theme does NOT make independently
    shippable items one feature — score based on the independence test,
    not on whether a unifying label exists.
+   When the same capability is needed across multiple products or
+   deployment targets (e.g., GPU enablement across RHAII, RHEL AI,
+   RHOAI), the products are delivery targets, not separate features.
+   Score based on whether the capabilities within each target are
+   independent, not whether the targets themselves are separate.
+   When scoring, first list the independent deliverables you identify.
+   Then apply the independence test to each pair. Consolidate any that
+   cannot function without each other into a single group. Score based
+   on the final count of independent groups.
    - 0 = Needs 3+ independent features (each could ship alone to
      different personas or for different purposes)
    - 1 = Bundles 1-2 separable features — deliverables that could ship
@@ -128,6 +137,10 @@ RFEs ideally map to ~1 RHAISTRAT feature.
 - R=2: "Redesign subscription model to support multi-tier access and declarative configuration." → Multiple deliverables (entity model, GitOps enablement, validation) but each requires the others to function at all. Cannot ship GitOps without the new entity model. Single coherent need.
 - R=1: "Support multi-tier subscriptions and add usage analytics reporting." → Multi-tier access solves an access control problem for platform admins. Usage analytics solves a billing/visibility problem for finance teams. Different personas, independently valuable, bundled by proximity to the subscription system.
 - R=0: "Overhaul platform security: add RBAC, audit logging, network policies, and vulnerability scanning." → Four distinct capabilities serving different compliance requirements, each needing its own strategy feature.
+- R=2: "Support GPU X across RHAII, RHEL AI, and RHOAI for workbenches, serving, and training." → Same capability across deployment targets. Workbenches, serving, and training all require GPU X enablement to function — they share upstream driver/framework work.
+- R=2: "Dashboard homepage with unified entry points, tool launch, and persona-based guidance." → Entry points without launch are useless; launch without entry points has no surface. Tightly coupled facets of a single discovery experience.
+- R=1: "Support GPU X across all products AND add GPU performance benchmarking dashboards." → Benchmarking serves a different persona (ops/perf engineers vs data scientists) and provides standalone value without GPU enablement.
+- R=1: "Data catalog with registration, search, data cards, AND lineage visualization." → Registration+search+cards are interdependent (catalog core). Lineage visualization serves a different purpose (traceability) and provides standalone value to compliance teams without the catalog UI.
 
 ### Pass/Fail
 - Pass: Total >= 7/10 AND no zeros on any criterion
