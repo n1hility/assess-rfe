@@ -55,8 +55,8 @@ Detect the input type:
 
 Then assess:
 1. Run `python3 {PLUGIN_ROOT}/scripts/prep_single.py {KEY}` to clean up stale files and ensure the output directory exists. This removes any previous `.md` and `.result.md` for the key so Write sees them as new files.
-2. Write the fetched content to `/tmp/rfe-assess/single/{KEY}.md` using the same `# KEY: Title` format as the cache files, wrapped in `%%%<boundary>%%%` markers (generate a UUID hex string as the boundary). For non-Jira inputs, use a descriptive key (e.g., filename or `INPUT`). This is a separate directory from the bulk cache — never write single-mode files into `/tmp/rfe-assess/RHAIRFE/` as that would clobber cached bulk data. **Note:** If the REST API fallback (`fetch_single.py`) was used, the file is already written and the boundary is in its `BOUNDARY=` output — skip this step.
-3. Spawn one background agent (model: opus, run_in_background: true) using the same launch prompt as Phase 2, with `{DATA_FILE}` set to `/tmp/rfe-assess/single/{KEY}.md`, `{RUN_DIR}` set to `/tmp/rfe-assess/single`, and `{BOUNDARY}` set to the boundary value.
+2. Write the fetched content to `/tmp/rfe-assess/single/{KEY}.md` using the same `# KEY: Title` format as the cache files. For non-Jira inputs, use a descriptive key (e.g., filename or `INPUT`). This is a separate directory from the bulk cache — never write single-mode files into `/tmp/rfe-assess/RHAIRFE/` as that would clobber cached bulk data. **Note:** If the REST API fallback (`fetch_single.py`) was used, the file is already written — skip this step.
+3. Spawn one background agent (model: opus, run_in_background: true, subagent_type: assess-rfe:rfe-scorer) using the same launch prompt as Phase 2, with `{DATA_FILE}` set to `/tmp/rfe-assess/single/{KEY}.md` and `{RUN_DIR}` set to `/tmp/rfe-assess/single`.
 4. Read the result from `/tmp/rfe-assess/single/{KEY}.result.md`, wrap it with a header, and present it to the user.
 
 #### Bulk (`RHAIRFE-*`)
@@ -74,7 +74,7 @@ Then assess:
   - If there is an incomplete current run (`CURRENT_COMPLETE=false`), inform the user it will be resumed.
 
 **Phase 1: Fetch all issues to local files.**
-- Run `python3 {PLUGIN_ROOT}/scripts/dump_jira.py RHAIRFE` to fetch every issue in the project via the Jira REST API. This writes one file per issue to `/tmp/rfe-assess/RHAIRFE/` (e.g., `RHAIRFE-42.md`). The script renders Jira's ADF content as proper markdown, preserving headings, lists, tables, links, and emphasis. Each file's content is wrapped in `%%%<boundary>%%%` markers for prompt-injection defense. Parse `BOUNDARY=<value>` from the script's stdout — you will pass this to agents in Phase 2.
+- Run `python3 {PLUGIN_ROOT}/scripts/dump_jira.py RHAIRFE` to fetch every issue in the project via the Jira REST API. This writes one file per issue to `/tmp/rfe-assess/RHAIRFE/` (e.g., `RHAIRFE-42.md`). The script renders Jira's ADF content as proper markdown, preserving headings, lists, tables, links, and emphasis.
 
 **Phase 1.5: Set up run directory.**
 - Run `python3 {PLUGIN_ROOT}/scripts/setup_run.py RHAIRFE` (add `--limit N` if the user requested a subset).
@@ -86,21 +86,19 @@ Then assess:
 
 **Phase 2: Assess with a pipeline of 30 concurrent agents.**
 - Spawn agents for each pending key, never more than **30 running at once**.
-- Each agent (model: opus, run_in_background: true) gets a short launch prompt that tells it to read the rubric file itself:
+- Each agent (model: opus, run_in_background: true, subagent_type: assess-rfe:rfe-scorer) gets a short launch prompt that tells it to read the rubric file itself:
   ```
   You are an RFE quality assessor. Your task:
   1. Read `{PROMPT_PATH}` for the full scoring rubric.
-  2. Follow its instructions exactly, substituting {KEY} for the issue key, {RUN_DIR} for the run directory, and {BOUNDARY} for the content boundary. Read the data file from {DATA_FILE} (not the path in the rubric's step 1).
+  2. Follow its instructions exactly, substituting {KEY} for the issue key and {RUN_DIR} for the run directory. Read the data file from {DATA_FILE} (not the path in the rubric's step 1).
   Issue key: {KEY}
   Data file: {DATA_FILE}
   Run directory: {RUN_DIR}
-  Content boundary: {BOUNDARY}
   ```
   The coordinator MUST substitute all placeholders with actual values before passing this prompt to the agent:
   - `{PROMPT_PATH}` → absolute path of `{PLUGIN_ROOT}/scripts/agent_prompt.md`
   - `{DATA_FILE}` → for bulk: `/tmp/rfe-assess/RHAIRFE/{KEY}.md`, for single: `/tmp/rfe-assess/single/{KEY}.md`
   - `{KEY}` and `{RUN_DIR}` → actual values
-  - `{BOUNDARY}` → the boundary value from `dump_jira.py` output (bulk) or `fetch_single.py` output (single)
   This ensures every agent reads the identical rubric from the single source of truth — no drift from coordinator paraphrasing.
 - **Rolling pipeline:** As each agent completes, immediately launch the next pending key to keep the pipeline at 30. Do not wait for a batch to finish before launching new agents.
 - **Active polling:** Poll running agents every 30 seconds. Do not passively wait for completion notifications — they can be missed, causing the pipeline to hang. If an agent has been running for more than 5 minutes, check its status and collect its result if done.

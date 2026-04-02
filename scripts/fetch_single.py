@@ -14,8 +14,6 @@ Writes to /tmp/rfe-assess/single/{KEY}.md in the same format as dump_jira.py.
 
 import os
 import sys
-import uuid
-
 # Import shared helpers from dump_jira
 sys.path.insert(0, os.path.dirname(__file__))
 from dump_jira import make_request, adf_to_markdown
@@ -57,18 +55,14 @@ def main():
     summary = fields.get("summary", "")
     description = adf_to_markdown(fields.get("description")).strip()
 
-    boundary = uuid.uuid4().hex
     single_dir = "/tmp/rfe-assess/single"
     os.makedirs(single_dir, exist_ok=True)
     filepath = os.path.join(single_dir, f"{key}.md")
     with open(filepath, "w", encoding="utf-8") as f:
-        f.write(f"%%%{boundary}%%%\n")
         f.write(f"# {key}: {summary}\n\n{description}\n")
-        f.write(f"%%%{boundary}%%%\n")
 
     print(f"FILE={filepath}")
     print(f"SUMMARY={summary}")
-    print(f"BOUNDARY={boundary}")
 
 
 if __name__ == "__main__":

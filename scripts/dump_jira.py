@@ -8,7 +8,6 @@ import sys
 import urllib.request
 import urllib.parse
 import base64
-import uuid
 
 
 def make_request(url, user, token, body=None):
@@ -214,7 +213,6 @@ def main():
     output_dir = args.output_dir or os.path.join("/tmp/rfe-assess", args.project)
     os.makedirs(output_dir, exist_ok=True)
 
-    boundary = uuid.uuid4().hex
     count = 0
     for issue in get_all_issues(server, user, token, args.project):
         key = issue.get("key", "unknown")
@@ -223,14 +221,11 @@ def main():
         description = adf_to_markdown(fields.get("description")).strip()
         filepath = os.path.join(output_dir, f"{key}.md")
         with open(filepath, "w", encoding="utf-8") as f:
-            f.write(f"%%%{boundary}%%%\n")
             f.write(f"# {key}: {summary}\n\n{description}\n")
-            f.write(f"%%%{boundary}%%%\n")
         count += 1
         if count % 100 == 0:
             print(f"  {count} issues dumped...", file=sys.stderr)
 
-    print(f"BOUNDARY={boundary}")
     print(f"Wrote {count} issues to {output_dir}/", file=sys.stderr)
 
 
