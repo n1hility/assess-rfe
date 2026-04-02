@@ -55,6 +55,16 @@ RFEs ideally map to ~1 RHAISTRAT feature.
 
    Exception: when the customer need is specifically tied to a named technology (e.g., "customers need MLflow Evaluation API support"), naming it is WHAT — the customer need IS that technology.
 
+   Technologies not on the platform vocabulary list:
+   - Naming as "the solution" is prescriptive (H=0-1): "Build this using KALE"
+   - Naming as a candidate to evaluate is acceptable (H=2): "Engineering should evaluate KALE, Elyra, and other approaches"
+   - Naming as the customer need itself is WHAT (H=2): "Customers need Katib-based hyperparameter tuning" — but only when customers specifically require that technology, not when the PM chose it
+   The test: if you removed the technology name and described the capability generically, would the RFE still make sense? If yes, the name is a solution choice. If no, it's the need itself.
+
+   Functional requirements phrased as "[verb] [object]" are WHAT when they describe observable outcomes ("identify paraphrased content," "detect drift between versions") and HOW when they prescribe algorithmic approaches ("parse traces using span labeling," "cluster errors by similarity metrics," "calculate distribution divergence using KL divergence"). The test: could engineering achieve the same outcome using a completely different technique? If yes, describe the outcome, not the technique.
+
+   Implementation details presented as non-prescriptive context are acceptable. When an RFE provides implementation details explicitly framed as reference or prior art ("engineering should determine the approach; the following is provided as context"), score based on whether engineering retains genuine freedom to choose a different approach. Context that informs without constraining is not prescriptive. The test: does the RFE still make sense if you ignore the context section entirely? If the business need stands on its own and the implementation details are supplementary, the framing is successful.
+
    Prescribing HOW means mandating internals *beyond* established platform patterns (e.g., specific DB table schemas, migration tools, plugin architectures, code namespaces).
 
    - 0 = Mandates internal architecture or links design docs as "the solution"
@@ -104,6 +114,10 @@ RFEs ideally map to ~1 RHAISTRAT feature.
 - H=2: "Deploy models using llm-d with external route exposure, matching existing KServe serving runtime behavior." → Platform vocabulary, not architecture prescription.
 - H=2: "Users can explicitly clear their vector database state and start fresh." → Describes the need without prescribing implementation.
 - H=2: "Expose REST API endpoints for programmatic model creation." → API surface is WHAT, not architecture.
+- H=2: "Detect when model behavior has changed from its baseline." → Observable outcome. Engineering chooses the detection method.
+- H=1: "Parse MLflow traces for tool-call spans and cluster common errors by similarity." → Prescribes the technique (span parsing, similarity clustering) rather than the outcome (identify tool-call failure patterns).
+- H=2: "Users need notebook-to-pipeline conversion without writing pipeline code. Context: KALE and Elyra are upstream projects that address this; engineering should evaluate these and other approaches." → Need is clear without the context. Engineering is free to choose.
+- H=1: "Build KALE integration for notebook-to-pipeline conversion." → KALE is mandated as the solution, not offered as context.
 
 #### Not a task
 - T=0: "Rename Trustyai-explainability to TrustyAI" with description "Look at the title." → Pure housekeeping. No customer-facing need.
