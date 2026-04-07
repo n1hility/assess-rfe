@@ -18,8 +18,17 @@ def extract_scores(text):
     Handles variants:
     - | WHAT | 1/2 | notes |
     - | **WHAT** (0-2) | 2 | rationale |
+    - | WHAT | -/2 | Data file not found |  (missing data → ERROR)
     - With or without a Total row (computes if missing)
     """
+    # Detect "data file not found" / "unable to assess" results early.
+    # These are written by agents that couldn't find their input data file.
+    lower_text = text.lower()
+    if "data file not found" in lower_text or "unable to assess" in lower_text:
+        if re.search(r"-\s*/\s*2", text):
+            return {"WHAT": 0, "WHY": 0, "HOW": 0, "Task": 0, "Size": 0,
+                    "Total": 0, "Pass_Fail": "ERROR"}
+
     what = why = how = task = size = total = pf = None
 
     for line in text.split("\n"):
@@ -149,8 +158,11 @@ def main():
     # Summary
     passed = sum(1 for r in rows if r["Pass_Fail"] == "PASS")
     failed = sum(1 for r in rows if r["Pass_Fail"] == "FAIL")
+    errors = sum(1 for r in rows if r["Pass_Fail"] == "ERROR")
     print(f"Parsed {len(rows)} results -> {output_path}", file=sys.stderr)
     print(f"  Passed: {passed}, Failed: {failed}", file=sys.stderr)
+    if errors:
+        print(f"  Errors (data not found): {errors}", file=sys.stderr)
     if failed_parse:
         print(f"  Could not parse: {len(failed_parse)} files: {', '.join(failed_parse[:10])}", file=sys.stderr)
 

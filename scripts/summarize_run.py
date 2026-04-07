@@ -41,22 +41,25 @@ def summarize(rows):
         print("No results to summarize.")
         return
 
-    passed = [r for r in rows if r["Pass_Fail"] == "PASS"]
-    failed = [r for r in rows if r["Pass_Fail"] == "FAIL"]
-    np, nf = len(passed), len(failed)
-    rate = np / n * 100
+    errors = [r for r in rows if r["Pass_Fail"] == "ERROR"]
+    assessed = [r for r in rows if r["Pass_Fail"] != "ERROR"]
+    passed = [r for r in assessed if r["Pass_Fail"] == "PASS"]
+    failed = [r for r in assessed if r["Pass_Fail"] == "FAIL"]
+    na = len(assessed)
+    np, nf, ne = len(passed), len(failed), len(errors)
+    rate = np / na * 100 if na > 0 else 0
 
     criteria = ["WHAT", "WHY", "HOW", "Task", "Size"]
 
-    # Averages
-    avgs = {c: sum(r[c] for r in rows) / n for c in criteria}
-    avg_total = sum(r["Total"] for r in rows) / n
+    # Averages (exclude errors)
+    avgs = {c: sum(r[c] for r in assessed) / na for c in criteria} if na > 0 else {c: 0 for c in criteria}
+    avg_total = sum(r["Total"] for r in assessed) / na if na > 0 else 0
 
-    # Zero counts
-    zeros = {c: sum(1 for r in rows if r[c] == 0) for c in criteria}
+    # Zero counts (exclude errors)
+    zeros = {c: sum(1 for r in assessed if r[c] == 0) for c in criteria}
 
-    # Score distribution
-    dist = Counter(r["Total"] for r in rows)
+    # Score distribution (exclude errors)
+    dist = Counter(r["Total"] for r in assessed)
 
     # What-if: for each criterion, if zeros became 1s, how many more would pass?
     what_if = {}
@@ -81,9 +84,11 @@ def summarize(rows):
     # Output
     print(f"## Assessment Summary")
     print()
-    print(f"- **Total assessed:** {n}")
+    print(f"- **Total assessed:** {na}")
     print(f"- **Passed:** {np} ({rate:.1f}%)")
     print(f"- **Failed:** {nf} ({100 - rate:.1f}%)")
+    if ne > 0:
+        print(f"- **Errors (data not found):** {ne}")
     print()
 
     print(f"### Score Distribution")
@@ -102,7 +107,7 @@ def summarize(rows):
     print(f"| Criterion | Avg  | Zeros | Zero % |")
     print(f"|-----------|------|-------|--------|")
     for c in criteria:
-        zp = zeros[c] / n * 100
+        zp = zeros[c] / na * 100 if na > 0 else 0
         print(f"| {c:<9} | {avgs[c]:.2f} | {zeros[c]:>5} | {zp:>5.1f}% |")
     print(f"| **Total** | **{avg_total:.2f}** | | |")
     print()

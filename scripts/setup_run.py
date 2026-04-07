@@ -2,8 +2,8 @@
 """Set up an assessment run directory with resume support.
 
 Checks for an existing incomplete run (current symlink with no scores.csv),
-creates a new timestamped directory if needed, and outputs the run directory
-and list of pending issue keys (one per line).
+creates a new timestamped directory if needed, writes pending keys to a queue
+file (queue.txt), and outputs run metadata.
 
 Usage:
     python3 scripts/setup_run.py RHAIRFE
@@ -83,16 +83,20 @@ def main():
     if args.limit > 0:
         pending = pending[:args.limit]
 
-    # Output
+    # Write pending keys to queue file in run directory
     run_dir_abs = os.path.abspath(run_dir)
+    queue_file = os.path.join(run_dir_abs, "queue.txt")
+    with open(queue_file, "w", encoding="utf-8") as f:
+        for key in pending:
+            f.write(key + "\n")
+
+    # Output (no longer dumps all keys to stdout)
     print(f"RUN_DIR={run_dir_abs}")
     print(f"TOTAL_ISSUES={len(all_keys)}")
     print(f"ALREADY_ASSESSED={len(assessed)}")
     print(f"PENDING={len(pending)}")
+    print(f"QUEUE_FILE={queue_file}")
     print(f"RESUMING={'true' if resuming else 'false'}")
-    print("---")
-    for key in pending:
-        print(key)
 
     if resuming:
         print(f"Resuming run: {run_dir_abs} ({len(assessed)} done, {len(pending)} remaining)",
