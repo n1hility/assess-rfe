@@ -98,6 +98,20 @@ RFEs ideally map to ~1 RHAISTRAT feature.
    - 2 = Focused single need — deliverables require each other to
      function at all, even if the RFE has many acceptance criteria
 
+6. Title Quality — Self-contained, customer-need-oriented title?
+   A good title communicates the customer need in a single dashboard-scannable line. It should be self-contained (understandable without reading the description), oriented around the customer need (not an internal work order), not implementation-prescriptive, and specific enough to distinguish from other RFEs.
+
+   Same exception as criterion 3 (Open to HOW): when the customer need IS the named technology, using it in the title is acceptable.
+
+   Length handling (evaluate before content scoring):
+   - Over 150 characters: cap score at 1 maximum, note the length penalty in rationale
+   - 81-150 characters: append a length warning to notes, score based on content quality
+   - 80 characters or under: no length mention needed
+
+   - 0 = Title is a work order, internal jargon, empty, or completely fails to communicate the customer need
+   - 1 = Title is vague, overly broad, or partially communicates the need but lacks specificity (also the maximum if title exceeds 150 characters)
+   - 2 = Title clearly communicates the customer need in a concise, scannable line
+
 ### Smell Tests
 - "Can engineering propose a different architecture?" (HOW)
 - "Can you write one strategy-feature summary for this?" (Right-sized)
@@ -105,6 +119,8 @@ RFEs ideally map to ~1 RHAISTRAT feature.
 - "Does this require another capability to function at all?" (Right-sized — inseparable)
 - "Is there a customer or strategic investment driving this?" (WHY)
 - "Would this make sense filed as an engineering task?" (Not a task)
+- "If I saw only this title in a 200-row Jira dashboard, would I understand the customer need?" (Title Quality — self-contained)
+- "Does the title read like a task assignment or like a customer problem?" (Title Quality — not a work order)
 
 ### Calibration Examples
 
@@ -142,6 +158,21 @@ RFEs ideally map to ~1 RHAISTRAT feature.
 - R=1: "Support GPU X across all products AND add GPU performance benchmarking dashboards." → Benchmarking serves a different persona (ops/perf engineers vs data scientists) and provides standalone value without GPU enablement.
 - R=1: "Data catalog with registration, search, data cards, AND lineage visualization." → Registration+search+cards are interdependent (catalog core). Lineage visualization serves a different purpose (traceability) and provides standalone value to compliance teams without the catalog UI.
 
+#### Title Quality
+- TQ=0: "TP Productize & Downstream the Agent Operator" → Work-order language ("productize & downstream") and implementation-prescriptive ("Agent Operator"). Tells engineering what to do, not what customers need.
+- TQ=0: "Tech Debt: Refactor Model Serving Pipeline" → Internal engineering task, not a customer need.
+- TQ=0: "" (empty title) → No title at all.
+- TQ=1: "Model serving enhancements" → Too vague. Which enhancements? What customer need? Could apply to dozens of different features.
+- TQ=1: "Improve user experience for data scientists" → Directionally correct but not specific enough to distinguish from other UX improvements.
+- TQ=1: "Support for new inference runtime capabilities across serving stack" → Gestures at the right area but doesn't name the specific capability or customer need.
+- TQ=2: "Supported way to deploy, scale, and lifecycle-manage AI agents" → Clear customer need, self-contained, no implementation prescription.
+- TQ=2: "MLflow Evaluation API support for model quality assessment" → Names a technology, but the customer need IS MLflow Evaluation API support. Same exception as HOW criterion.
+- TQ=2: "Air-gapped installation support for disconnected environments" → Clear customer need, specific enough to distinguish, no implementation detail.
+- TQ=2: "Users can approve non-read tool calls before execution" → Customer-facing capability, self-contained, concise.
+- TQ=1: "KServe integration for multi-model serving with autoscaling" → KServe is platform vocabulary (acceptable), but "integration" is vague. What customer need does this serve? Better: "Multi-model serving with independent autoscaling per model."
+- TQ=2: "Guardrails for AI agent tool execution to prevent destructive actions" → Clear safety need, self-contained, uses platform vocabulary appropriately.
+- TQ=1: "Enable comprehensive support for deploying, managing, scaling, monitoring, and lifecycle-managing large language model inference endpoints across all supported serving runtimes including KServe and vLLM with full observability integration" → Content is customer-need-oriented, but at 198 characters, exceeds the 150-character cap. Score capped at 1.
+
 ### Pass/Fail
 - Pass: Total >= 7/10 AND no zeros on any criterion
 - Fail: Total < 7 OR any zero (automatic fail regardless of total)
@@ -159,6 +190,7 @@ TITLE: [issue summary]
 | Open to HOW | X/2 | [note any architecture prescription or lack thereof] |
 | Not a task | X/2  | [explain whether this is a business need or activity] |
 | Right-sized | X/2 | [assess scope relative to a single strategy feature] |
+| Title Quality *(advisory)* | X/2 | [assess title clarity, specificity, and customer-need orientation] |
 | **Total** | **X/10** | **PASS/FAIL** |
 
 ### Verdict
