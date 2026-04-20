@@ -27,9 +27,9 @@ def extract_scores(text):
     if "data file not found" in lower_text or "unable to assess" in lower_text:
         if re.search(r"-\s*/\s*2", text):
             return {"WHAT": 0, "WHY": 0, "HOW": 0, "Task": 0, "Size": 0,
-                    "Total": 0, "Pass_Fail": "ERROR"}
+                    "Title_Quality": "", "Total": 0, "Pass_Fail": "ERROR"}
 
-    what = why = how = task = size = total = pf = None
+    what = why = how = task = size = title_quality = total = pf = None
 
     for line in text.split("\n"):
         ll = line.strip()
@@ -63,6 +63,8 @@ def extract_scores(text):
                 task = score
             elif ("size" in crit or "right" in crit) and size is None:
                 size = score
+            elif "title" in crit and "total" not in crit and title_quality is None:
+                title_quality = score
 
         # Total row
         if "total" in criterion:
@@ -88,6 +90,7 @@ def extract_scores(text):
 
     if all(x is not None for x in [what, why, how, task, size, total]):
         return {"WHAT": what, "WHY": why, "HOW": how, "Task": task, "Size": size,
+                "Title_Quality": title_quality if title_quality is not None else "",
                 "Total": total, "Pass_Fail": pf}
     return None
 
@@ -149,7 +152,7 @@ def main():
         })
 
     # Write CSV
-    fieldnames = ["ID", "Title", "WHAT", "WHY", "HOW", "Task", "Size", "Total", "Pass_Fail"]
+    fieldnames = ["ID", "Title", "WHAT", "WHY", "HOW", "Task", "Size", "Title_Quality", "Total", "Pass_Fail"]
     with open(output_path, "w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=fieldnames)
         writer.writeheader()

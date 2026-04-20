@@ -30,6 +30,8 @@ def load_scores(path):
         for row in reader:
             for col in ["WHAT", "WHY", "HOW", "Task", "Size", "Total"]:
                 row[col] = int(row[col])
+            tq = row.get("Title_Quality", "")
+            row["Title_Quality"] = int(tq) if tq not in ("", None) else None
             rows.append(row)
     return rows
 
@@ -111,6 +113,21 @@ def summarize(rows):
         print(f"| {c:<9} | {avgs[c]:.2f} | {zeros[c]:>5} | {zp:>5.1f}% |")
     print(f"| **Total** | **{avg_total:.2f}** | | |")
     print()
+
+    tq_scores = [r["Title_Quality"] for r in assessed if r.get("Title_Quality") is not None]
+    if tq_scores:
+        tq_dist = Counter(tq_scores)
+        tq_avg = sum(tq_scores) / len(tq_scores)
+        print(f"### Title Quality (Advisory)")
+        print()
+        print(f"| Score | Count |")
+        print(f"|-------|-------|")
+        for s in (0, 1, 2):
+            count = tq_dist.get(s, 0)
+            if count > 0:
+                print(f"| {s}/2   | {count:>5} |")
+        print(f"| **Avg** | **{tq_avg:.2f}** |")
+        print()
 
     print(f"### What-If Analysis (if zeros became 1)")
     print()
