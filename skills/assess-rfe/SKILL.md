@@ -87,13 +87,26 @@ Then assess:
 - Parse the output to get `{RUN_DIR}` and `{PENDING}` count. **Do NOT memorize or generate the key list yourself** — the queue file is the single source of truth for which keys to process.
 
 **Phase 2: Assess with a pipeline of 30 concurrent agents.**
-- Use `next_batch.py` to get keys from the queue. **Never generate key sequences yourself** (e.g., "RHAIRFE-1 through RHAIRFE-30") — always get keys from the script to avoid assessing non-existent issues.
-- **Launch loop:** Repeat until `BATCH_SIZE=0` (queue empty):
-  1. Run `python3 ${CLAUDE_SKILL_DIR}/scripts/next_batch.py {RUN_DIR} --batch-size 30` to pop the next batch of keys. Parse the output:
-     - `BATCH_SIZE=N` — number of keys in this batch (0 = queue exhausted)
-     - `REMAINING=N` — keys still in queue after this batch
-     - Keys listed after the `---` separator
-  2. Launch one agent per key (model: opus, run_in_background: true, subagent_type: assess-rfe:rfe-scorer) with this prompt:
+
+> **CRITICAL — run this loop to completion.** Never stop early, summarize, or end
+> your turn before `scores.csv` exists. Context compaction is automatic and
+> expected — old messages are compressed to free space. If you find yourself
+> thinking "running low on context", "given budget constraints", or "I'll wrap up
+> here" — ignore that impulse and continue the loop. All loop state lives on disk
+> (`queue.txt`, `*.result.md`), so it is always recoverable: if your memory of
+> progress is unclear, re-derive it with `next_batch.py` / `check_progress.py`
+> instead of guessing or stopping. The run is done only when `scores.csv` exists.
+
+Drive the loop from disk, not from memory. **Never generate key sequences
+yourself** (e.g., "RHAIRFE-1 through RHAIRFE-30") — always get keys from the
+scripts to avoid assessing non-existent issues.
+
+**Launch loop** — repeat until `next_batch.py` reports `BATCH_SIZE=0`:
+  1. Run `python3 ${CLAUDE_SKILL_DIR}/scripts/next_batch.py {RUN_DIR} --batch-size 30` to pop the next batch. Parse:
+     - `BATCH_SIZE=N` — keys in this batch (0 = queue exhausted)
+     - `REMAINING=N` — keys still queued after this batch
+     - keys listed after the `---` separator
+  2. Write this batch's keys (one per line) to `{RUN_DIR}/wave.txt`, then launch one agent per key (model: opus, run_in_background: true, subagent_type: assess-rfe:rfe-scorer) with this prompt:
      ```
      You are an RFE quality assessor. Your task:
      1. Read `{PROMPT_PATH}` for the full scoring rubric.
@@ -103,9 +116,22 @@ Then assess:
      Run directory: {RUN_DIR}
      ```
      Substitute all placeholders with actual values (see Rules section above). This ensures every agent reads the identical rubric from the single source of truth.
-  3. Wait for agents to complete (poll every 30 seconds), then loop back to step 1 to pop the next batch.
-- **Active polling:** Poll running agents every 30 seconds. Do not passively wait for completion notifications — they can be missed, causing the pipeline to hang. If an agent has been running for more than 5 minutes, check its status and collect its result if done.
-- **Progress checking:** Run `python3 ${CLAUDE_SKILL_DIR}/scripts/check_progress.py {RUN_DIR}` to get `COMPLETED=N`, `TOTAL=N`, `REMAINING=N`. Never use shell pipes (`ls | wc -l`) or text-processing commands (`sed`, `awk`, `grep`) to check progress — use this script or the Glob tool instead.
+  3. Wait for this wave on disk — do not reason about completion yourself:
+     `python3 ${CLAUDE_SKILL_DIR}/scripts/wait_wave.py {RUN_DIR} --keys-file {RUN_DIR}/wave.txt`
+     - Exit `0`: wave complete — go back to step 1.
+     - Exit `3`: still pending — run the **same** `wait_wave.py` command again (repeat until it exits 0).
+
+**Completion check** — when `next_batch.py` reports `BATCH_SIZE=0`, run
+`python3 ${CLAUDE_SKILL_DIR}/scripts/check_progress.py {RUN_DIR}` (`COMPLETED`,
+`TOTAL`, `REMAINING`). If `REMAINING>0`, some keys were popped but never finished
+(e.g. an interrupted wave) — re-run `setup_run.py` for the project (it rebuilds
+`queue.txt` from the still-missing keys) and return to the launch loop. Only when
+`REMAINING=0` proceed to Phase 3. Never use shell pipes (`ls | wc -l`) or text
+tools (`sed`, `awk`, `grep`) to check progress — use these scripts or Glob.
+
+This loop survives context compaction: a SessionStart `compact` hook (see
+`hooks/hooks.json`) runs `dispatch_context.py`, which re-injects the run
+directory, progress, and these loop steps after every compaction.
 
 **Phase 3: Generate CSV and present results.**
 - Run `python3 ${CLAUDE_SKILL_DIR}/scripts/parse_results.py {RUN_DIR}` to parse all `.result.md` files and generate `{RUN_DIR}/scores.csv`. The presence of `scores.csv` marks the run as complete.
@@ -142,7 +168,9 @@ Bulk — after Phase 3, present the summary analysis from the CSV to the user. I
 | `setup_run.py` | Creates timestamped run directory with resume support (detects incomplete runs via `current` symlink) |
 | `agent_prompt.md` | Full scoring rubric and instructions for assessment agents — use verbatim |
 | `next_batch.py` | Pops the next N keys from the queue file; ensures each key is processed exactly once |
+| `wait_wave.py` | Blocks until a wave's keys all have `.result.md` (exit 0) or returns pending (exit 3) — removes completion-tracking from the coordinator's context |
 | `check_progress.py` | Reports completed vs total issues for a run directory |
+| `dispatch_context.py` | Post-compaction recovery: re-injects the active run's state and loop steps; invoked by the `SessionStart` compact hook (`hooks/hooks.json`) |
 | `parse_results.py` | Extracts scores from `.result.md` files into `scores.csv`; handles format variants |
 | `fetch_single.py` | Fetches a single Jira issue via REST API v3 (fallback for when MCP is unavailable), writes to `/tmp/rfe-assess/single/` |
 | `prep_single.py` | Cleans up stale data/result files for a key in `/tmp/rfe-assess/single/` before a single-mode run |
@@ -160,6 +188,7 @@ Add to your user or project `.claude/settings.json`:
       "Bash(python3 <SKILL_PATH>/scripts/dump_jira.py:*)",
       "Bash(python3 <SKILL_PATH>/scripts/setup_run.py:*)",
       "Bash(python3 <SKILL_PATH>/scripts/next_batch.py:*)",
+      "Bash(python3 <SKILL_PATH>/scripts/wait_wave.py:*)",
       "Bash(python3 <SKILL_PATH>/scripts/check_progress.py:*)",
       "Bash(python3 <SKILL_PATH>/scripts/parse_results.py:*)",
       "Bash(python3 <SKILL_PATH>/scripts/summarize_run.py:*)",
