@@ -96,6 +96,13 @@ Then assess:
 > find yourself thinking "running low on context", "given budget constraints", or
 > "I'll wrap up here" — ignore that impulse and call `next_action.py` again. All
 > state lives on disk, so the script re-derives the exact next step every call.
+>
+> **Follow the `NEXT:` line.** Every script (`next_action.py`, `wait_wave.py`)
+> ends its output with a `NEXT:` line naming the exact command to run next. Always
+> do what the latest `NEXT:` line says — especially after a compaction, when your
+> memory of these steps may be degraded. In particular, after launching a wave you
+> MUST run `wait_wave.py` as the `NEXT:` line instructs; **never** "wait for agent
+> completion notifications" instead — that is how the loop stalls and dies.
 
 Drive the loop from disk, not from memory. **Never generate key sequences
 yourself** (e.g., "RHAIRFE-1 through RHAIRFE-30") — only ever launch the keys
@@ -103,20 +110,14 @@ yourself** (e.g., "RHAIRFE-1 through RHAIRFE-30") — only ever launch the keys
 
 **Dispatch loop** — repeat until `next_action.py` prints `ACTION=done`:
   1. Run `python3 ${CLAUDE_SKILL_DIR}/scripts/next_action.py {RUN_DIR} --batch-size 30`. Parse the `ACTION=` line.
-  2. **`ACTION=launch_wave`** — the keys to launch are listed after the `---` separator (the script has already written them to `{RUN_DIR}/wave.txt`). Launch one agent per key (model: opus, run_in_background: true, subagent_type: assess-rfe:rfe-scorer) with this prompt:
+  2. **`ACTION=launch_wave`** — the keys to launch are listed after the `---` separator (the script has already written them to `{RUN_DIR}/wave.txt`). Launch one agent per key (model: opus, run_in_background: true, subagent_type: assess-rfe:rfe-scorer) with this prompt (keep it terse — substitute all placeholders):
      ```
-     You are an RFE quality assessor. Your task:
-     1. Read `{PROMPT_PATH}` for the full scoring rubric.
-     2. Follow its instructions exactly, substituting {KEY} for the issue key and {RUN_DIR} for the run directory. Read the data file from {DATA_FILE} (not the path in the rubric's step 1).
-     Issue key: {KEY}
-     Data file: {DATA_FILE}
-     Run directory: {RUN_DIR}
+     Score RFE {KEY} against the rubric in {PROMPT_PATH} — read it and follow it exactly. Read the issue data from {DATA_FILE} (use this, not the path in the rubric's step 1). Run dir: {RUN_DIR}.
      ```
-     Substitute all placeholders with actual values (see Rules section above). This ensures every agent reads the identical rubric from the single source of truth. Then wait for the wave on disk — do not reason about completion yourself:
-     `python3 ${CLAUDE_SKILL_DIR}/scripts/wait_wave.py {RUN_DIR} --keys-file {RUN_DIR}/wave.txt`
-     - Exit `0`: wave complete — go back to step 1.
-     - Exit `3`: still pending — run the **same** `wait_wave.py` command again (repeat until it exits 0), then go back to step 1.
-  3. **`ACTION=done`** — the run is complete. `next_action.py` has already produced `{RUN_DIR}/scores.csv` (it runs the parse itself before reporting done). Proceed to Phase 3.
+     Every agent reads the identical rubric from the single source of truth and writes its result to disk, replying only `DONE {KEY}` (do not read or act on agent replies — results live on disk). Then **do what the `next_action.py` output's `NEXT:` line says**: run `wait_wave.py` to wait for the wave on disk — do not reason about completion yourself, and do not wait on agent notifications.
+     - `wait_wave.py` exit `0`: wave complete — its `NEXT:` line points back to `next_action.py` (step 1).
+     - exit `3`: still pending — its `NEXT:` line says re-run the **same** command; do that until it exits 0.
+  3. **`ACTION=done`** — the run is complete. `next_action.py` has already produced `{RUN_DIR}/scores.csv` (it runs the parse itself before reporting done) and its `NEXT:` line points to Phase 3.
 
 To inspect progress, rely on `next_action.py` as the single source of truth
 (it re-derives state from disk) rather than shell pipes (`ls | wc -l`) or text

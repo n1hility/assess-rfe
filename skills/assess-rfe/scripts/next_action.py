@@ -80,6 +80,23 @@ def _total_from_cache(run_dir, cache_dir):
     return len([f for f in os.listdir(project_cache) if f.endswith(".md")])
 
 
+def _sibling(name):
+    """Absolute path to a sibling script in this scripts/ directory."""
+    return os.path.join(os.path.dirname(os.path.abspath(__file__)), name)
+
+
+def _print_done(run_dir, completed, total, scores_csv):
+    """Emit the done directive, including the explicit next command."""
+    print("ACTION=done")
+    print(f"COMPLETED={completed}")
+    print(f"TOTAL={total}")
+    print(f"SCORES_CSV={os.path.abspath(scores_csv)}")
+    print(
+        f"NEXT: run python3 {_sibling('summarize_run.py')} {os.path.abspath(run_dir)} "
+        f"and present the summary; the run is complete."
+    )
+
+
 def main():
     parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
@@ -106,10 +123,7 @@ def main():
 
     # Already finalized — nothing left to do.
     if os.path.exists(scores_csv):
-        print("ACTION=done")
-        print(f"COMPLETED={len(completed)}")
-        print(f"TOTAL={total}")
-        print(f"SCORES_CSV={os.path.abspath(scores_csv)}")
+        _print_done(run_dir, len(completed), total, scores_csv)
         return
 
     # Pending = target keys (queue.txt) that have no result file yet. Recomputed
@@ -128,6 +142,14 @@ def main():
         print(f"PENDING={len(pending)}")
         print(f"COMPLETED={len(completed)}")
         print(f"TOTAL={total}")
+        print(
+            f"NEXT: launch one assess-rfe:rfe-scorer background agent (model opus, "
+            f"run_in_background) per key listed after '---', then immediately run: "
+            f"python3 {_sibling('wait_wave.py')} {os.path.abspath(run_dir)} "
+            f"--keys-file {os.path.abspath(wave_file)}  "
+            f"Do NOT wait on agent completion notifications — running wait_wave.py "
+            f"IS how you wait; it blocks until the wave is done on disk."
+        )
         print("---")
         for key in wave:
             print(key)
@@ -151,10 +173,7 @@ def main():
         )
         sys.exit(1)
 
-    print("ACTION=done")
-    print(f"COMPLETED={len(completed)}")
-    print(f"TOTAL={total}")
-    print(f"SCORES_CSV={os.path.abspath(scores_csv)}")
+    _print_done(run_dir, len(completed), total, scores_csv)
 
 
 if __name__ == "__main__":

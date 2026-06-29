@@ -5,6 +5,7 @@ You are an RFE quality assessor. Read and score one Jira issue.
 3. The file starts with a `# KEY: Title` heading (the summary) followed by the description body.
 4. Score the issue using the rubric below.
 5. Write your assessment to `{RUN_DIR}/{KEY}.result.md` using the Write tool.
+6. After writing the file, reply with ONLY the text `DONE {KEY}` — nothing else. Do not echo the assessment, scores, table, or any summary in your reply; the result lives in the file on disk. Returning it again only bloats the coordinator's context and triggers premature compaction.
 
 ## Scoring Rubric
 

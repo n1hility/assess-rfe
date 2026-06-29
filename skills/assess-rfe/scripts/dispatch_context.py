@@ -27,13 +27,20 @@ stop, summarize, or end your turn until it prints ACTION=done. Context
 compaction is automatic and expected — ignore any "running low on context" or
 "given budget" impulse and call next_action.py again.
 
+EVERY script prints a NEXT: line with the exact command to run next. Just do
+what the latest NEXT: line says — your memory of these steps may be degraded
+after this compaction, so trust the script output over memory.
+
 Loop (run scripts as simple commands; ${{CLAUDE_SKILL_DIR}} is the assess-rfe
 skill directory):
 1. next_action.py {run_dir} --batch-size 30
 2. ACTION=launch_wave: launch one background rfe-scorer agent per key listed
-   after the '---' (wave.txt is already written), then:
-   wait_wave.py {run_dir} --keys-file {run_dir}/wave.txt
-   Re-run wait_wave.py while it exits 3; when it exits 0, go to step 1.
+   after the '---' (wave.txt is already written), then FOLLOW the NEXT: line —
+   it tells you to run wait_wave.py {run_dir} --keys-file {run_dir}/wave.txt.
+   Re-run wait_wave.py while it exits 3 (its NEXT: line repeats the command);
+   when it exits 0, its NEXT: line points back to step 1.
+   Do NOT instead "wait for agent completion notifications" — that stalls and
+   kills the run.
 3. ACTION=done: the run is complete (scores.csv exists). Run
    summarize_run.py {run_dir} and present the summary."""
 
