@@ -21,21 +21,21 @@ import os
 import sys
 
 LOOP_PROTOCOL = """\
-Resume the bulk assessment dispatch loop. Do NOT stop, summarize, or end your
-turn until scores.csv exists. Context compaction is automatic and expected —
-ignore any "running low on context" or "given budget" impulse and keep going.
+Resume the bulk assessment dispatch loop. next_action.py decides what runs next
+and when the run is complete — do NOT decide completion yourself, and do NOT
+stop, summarize, or end your turn until it prints ACTION=done. Context
+compaction is automatic and expected — ignore any "running low on context" or
+"given budget" impulse and call next_action.py again.
 
 Loop (run scripts as simple commands; ${{CLAUDE_SKILL_DIR}} is the assess-rfe
 skill directory):
-1. next_batch.py {run_dir} --batch-size 30
-2. If BATCH_SIZE > 0: write the listed keys to {run_dir}/wave.txt, launch one
-   background rfe-scorer agent per key, then:
+1. next_action.py {run_dir} --batch-size 30
+2. ACTION=launch_wave: launch one background rfe-scorer agent per key listed
+   after the '---' (wave.txt is already written), then:
    wait_wave.py {run_dir} --keys-file {run_dir}/wave.txt
    Re-run wait_wave.py while it exits 3; when it exits 0, go to step 1.
-3. If BATCH_SIZE = 0: run check_progress.py {run_dir}. If REMAINING > 0, re-run
-   setup_run.py for the project (rebuilds the queue from unfinished keys) and go
-   to step 1. If REMAINING = 0, finalize: parse_results.py {run_dir} then
-   summarize_run.py {run_dir}."""
+3. ACTION=done: the run is complete (scores.csv exists). Run
+   summarize_run.py {run_dir} and present the summary."""
 
 
 def _find_active_runs(assess_dir):

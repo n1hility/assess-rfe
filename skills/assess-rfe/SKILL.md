@@ -86,27 +86,24 @@ Then assess:
   - `QUEUE_FILE=<path>` — path to the queue file containing all pending keys (one per line)
 - Parse the output to get `{RUN_DIR}` and `{PENDING}` count. **Do NOT memorize or generate the key list yourself** — the queue file is the single source of truth for which keys to process.
 
-**Phase 2: Assess with a pipeline of 30 concurrent agents.**
+**Phase 2: Assess with a script-driven pipeline of 30 concurrent agents.**
 
-> **CRITICAL — run this loop to completion.** Never stop early, summarize, or end
-> your turn before `scores.csv` exists. Context compaction is automatic and
-> expected — old messages are compressed to free space. If you find yourself
-> thinking "running low on context", "given budget constraints", or "I'll wrap up
-> here" — ignore that impulse and continue the loop. All loop state lives on disk
-> (`queue.txt`, `*.result.md`), so it is always recoverable: if your memory of
-> progress is unclear, re-derive it with `next_batch.py` / `check_progress.py`
-> instead of guessing or stopping. The run is done only when `scores.csv` exists.
+> **CRITICAL — `next_action.py` owns the loop, not you.** The script decides what
+> runs next and when the run is complete. Your only job is to do what it prints
+> and call it again. **Never decide completion yourself; never stop, summarize, or
+> end your turn until `next_action.py` prints `ACTION=done`.** Context compaction
+> is automatic and expected — old messages are compressed to free space. If you
+> find yourself thinking "running low on context", "given budget constraints", or
+> "I'll wrap up here" — ignore that impulse and call `next_action.py` again. All
+> state lives on disk, so the script re-derives the exact next step every call.
 
 Drive the loop from disk, not from memory. **Never generate key sequences
-yourself** (e.g., "RHAIRFE-1 through RHAIRFE-30") — always get keys from the
-scripts to avoid assessing non-existent issues.
+yourself** (e.g., "RHAIRFE-1 through RHAIRFE-30") — only ever launch the keys
+`next_action.py` lists, to avoid assessing non-existent issues.
 
-**Launch loop** — repeat until `next_batch.py` reports `BATCH_SIZE=0`:
-  1. Run `python3 ${CLAUDE_SKILL_DIR}/scripts/next_batch.py {RUN_DIR} --batch-size 30` to pop the next batch. Parse:
-     - `BATCH_SIZE=N` — keys in this batch (0 = queue exhausted)
-     - `REMAINING=N` — keys still queued after this batch
-     - keys listed after the `---` separator
-  2. Write this batch's keys (one per line) to `{RUN_DIR}/wave.txt`, then launch one agent per key (model: opus, run_in_background: true, subagent_type: assess-rfe:rfe-scorer) with this prompt:
+**Dispatch loop** — repeat until `next_action.py` prints `ACTION=done`:
+  1. Run `python3 ${CLAUDE_SKILL_DIR}/scripts/next_action.py {RUN_DIR} --batch-size 30`. Parse the `ACTION=` line.
+  2. **`ACTION=launch_wave`** — the keys to launch are listed after the `---` separator (the script has already written them to `{RUN_DIR}/wave.txt`). Launch one agent per key (model: opus, run_in_background: true, subagent_type: assess-rfe:rfe-scorer) with this prompt:
      ```
      You are an RFE quality assessor. Your task:
      1. Read `{PROMPT_PATH}` for the full scoring rubric.
@@ -115,26 +112,22 @@ scripts to avoid assessing non-existent issues.
      Data file: {DATA_FILE}
      Run directory: {RUN_DIR}
      ```
-     Substitute all placeholders with actual values (see Rules section above). This ensures every agent reads the identical rubric from the single source of truth.
-  3. Wait for this wave on disk — do not reason about completion yourself:
+     Substitute all placeholders with actual values (see Rules section above). This ensures every agent reads the identical rubric from the single source of truth. Then wait for the wave on disk — do not reason about completion yourself:
      `python3 ${CLAUDE_SKILL_DIR}/scripts/wait_wave.py {RUN_DIR} --keys-file {RUN_DIR}/wave.txt`
      - Exit `0`: wave complete — go back to step 1.
-     - Exit `3`: still pending — run the **same** `wait_wave.py` command again (repeat until it exits 0).
+     - Exit `3`: still pending — run the **same** `wait_wave.py` command again (repeat until it exits 0), then go back to step 1.
+  3. **`ACTION=done`** — the run is complete. `next_action.py` has already produced `{RUN_DIR}/scores.csv` (it runs the parse itself before reporting done). Proceed to Phase 3.
 
-**Completion check** — when `next_batch.py` reports `BATCH_SIZE=0`, run
-`python3 ${CLAUDE_SKILL_DIR}/scripts/check_progress.py {RUN_DIR}` (`COMPLETED`,
-`TOTAL`, `REMAINING`). If `REMAINING>0`, some keys were popped but never finished
-(e.g. an interrupted wave) — re-run `setup_run.py` for the project (it rebuilds
-`queue.txt` from the still-missing keys) and return to the launch loop. Only when
-`REMAINING=0` proceed to Phase 3. Never use shell pipes (`ls | wc -l`) or text
-tools (`sed`, `awk`, `grep`) to check progress — use these scripts or Glob.
+To inspect progress, rely on `next_action.py` as the single source of truth
+(it re-derives state from disk) rather than shell pipes (`ls | wc -l`) or text
+tools (`sed`, `awk`, `grep`).
 
 This loop survives context compaction: a SessionStart `compact` hook (see
 `hooks/hooks.json`) runs `dispatch_context.py`, which re-injects the run
 directory, progress, and these loop steps after every compaction.
 
-**Phase 3: Generate CSV and present results.**
-- Run `python3 ${CLAUDE_SKILL_DIR}/scripts/parse_results.py {RUN_DIR}` to parse all `.result.md` files and generate `{RUN_DIR}/scores.csv`. The presence of `scores.csv` marks the run as complete.
+**Phase 3: Present results.**
+- `scores.csv` already exists (produced by `next_action.py` when it reported `ACTION=done`).
 - Run `python3 ${CLAUDE_SKILL_DIR}/scripts/summarize_run.py {RUN_DIR}` to produce the full summary analysis (pass/fail counts, score distribution, criteria averages, zero-score counts, what-if analysis, near-miss failures). Present the output to the user.
 
 ### Agent Prompt Template
@@ -167,9 +160,10 @@ Bulk — after Phase 3, present the summary analysis from the CSV to the user. I
 | `preflight.py` | Checks env vars, cache state, and current run status |
 | `setup_run.py` | Creates timestamped run directory with resume support (detects incomplete runs via `current` symlink) |
 | `agent_prompt.md` | Full scoring rubric and instructions for assessment agents — use verbatim |
-| `next_batch.py` | Pops the next N keys from the queue file; ensures each key is processed exactly once |
+| `next_action.py` | **Authoritative bulk-loop driver.** Computes the next wave from disk (`queue.txt` minus existing `.result.md`), or — when none remain — runs `parse_results.py` and reports `ACTION=done`. Owns completion so the coordinator can't stop early |
 | `wait_wave.py` | Blocks until a wave's keys all have `.result.md` (exit 0) or returns pending (exit 3) — removes completion-tracking from the coordinator's context |
-| `check_progress.py` | Reports completed vs total issues for a run directory |
+| `next_batch.py` | (Superseded by `next_action.py` for the bulk loop.) Pops the next N keys from the queue file by mutating it |
+| `check_progress.py` | Reports completed vs total issues for a run directory (used by `dispatch_context.py`) |
 | `dispatch_context.py` | Post-compaction recovery: re-injects the active run's state and loop steps; invoked by the `SessionStart` compact hook (`hooks/hooks.json`) |
 | `parse_results.py` | Extracts scores from `.result.md` files into `scores.csv`; handles format variants |
 | `fetch_single.py` | Fetches a single Jira issue via REST API v3 (fallback for when MCP is unavailable), writes to `/tmp/rfe-assess/single/` |
@@ -187,6 +181,7 @@ Add to your user or project `.claude/settings.json`:
       "Bash(python3 <SKILL_PATH>/scripts/preflight.py:*)",
       "Bash(python3 <SKILL_PATH>/scripts/dump_jira.py:*)",
       "Bash(python3 <SKILL_PATH>/scripts/setup_run.py:*)",
+      "Bash(python3 <SKILL_PATH>/scripts/next_action.py:*)",
       "Bash(python3 <SKILL_PATH>/scripts/next_batch.py:*)",
       "Bash(python3 <SKILL_PATH>/scripts/wait_wave.py:*)",
       "Bash(python3 <SKILL_PATH>/scripts/check_progress.py:*)",
