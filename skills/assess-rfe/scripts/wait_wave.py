@@ -66,11 +66,20 @@ def main():
     with open(args.keys_file, "r", encoding="utf-8") as f:
         keys = [line.strip() for line in f if line.strip()]
 
+    run_dir_abs = os.path.abspath(args.run_dir)
+    next_action = os.path.join(os.path.dirname(os.path.abspath(__file__)), "next_action.py")
+    next_action_cmd = f"python3 {next_action} {run_dir_abs}"
+    rerun_cmd = (
+        f"python3 {os.path.abspath(__file__)} {run_dir_abs} "
+        f"--keys-file {os.path.abspath(args.keys_file)}"
+    )
+
     if not keys:
         # Empty wave — nothing to wait for.
         print("COMPLETED=0")
         print("PENDING=0")
         print("WAVE_SIZE=0")
+        print(f"NEXT: wave complete — run: {next_action_cmd}")
         print("---")
         return
 
@@ -86,6 +95,13 @@ def main():
     print(f"COMPLETED={len(keys) - len(pending)}")
     print(f"PENDING={len(pending)}")
     print(f"WAVE_SIZE={len(keys)}")
+    if pending:
+        print(
+            f"NEXT: wave NOT complete ({len(pending)} pending) — re-run this exact "
+            f"command (do NOT wait on notifications): {rerun_cmd}"
+        )
+    else:
+        print(f"NEXT: wave complete — run: {next_action_cmd}")
     print("---")
     for key in pending:
         print(key)
