@@ -9,7 +9,7 @@ Usage:
     python3 scripts/fetch_single.py RHAIRFE-1234
 
 Requires JIRA_SERVER, JIRA_USER, JIRA_TOKEN environment variables.
-Writes to /tmp/rfe-assess/single/{KEY}.md in the same format as dump_jira.py.
+Writes to tmp/rfe-assess/single/{KEY}.md in the same format as dump_jira.py.
 """
 
 import os
@@ -60,7 +60,7 @@ def main():
     summary = fields.get("summary", "")
     description = adf_to_markdown(fields.get("description")).strip()
 
-    single_dir = "/tmp/rfe-assess/single"
+    single_dir = "tmp/rfe-assess/single"
     os.makedirs(single_dir, exist_ok=True)
     filepath = os.path.join(single_dir, f"{key}.md")
     with open(filepath, "w", encoding="utf-8") as f:

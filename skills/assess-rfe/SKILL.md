@@ -41,7 +41,7 @@ assessments/RHAIRFE/                  # in the project directory (persistent)
 
 /tmp/rfe-assess/RHAIRFE/              # fetched issues (transient cache)
   RHAIRFE-42.md
-/tmp/rfe-assess/single/               # single-mode temp files
+tmp/rfe-assess/single/               # single-mode temp files
   RHAIRFE-1234.md
 ```
 
@@ -50,16 +50,16 @@ assessments/RHAIRFE/                  # in the project directory (persistent)
 Detect the input type:
 - **Jira issue key** (matches `[A-Z]+-\d+`): Try MCP first, then fall back to the REST API:
   1. **Try MCP:** Call `mcp__atlassian__getJiraIssue` with the key and `cloudId="https://redhat.atlassian.net"`. If the call succeeds, extract the summary and description.
-  2. **Fallback to REST API:** If the MCP call fails (tool not available, connection error, or any other error), fall back to the Jira REST API by running `python3 ${CLAUDE_SKILL_DIR}/scripts/fetch_single.py {KEY}`. This requires `JIRA_SERVER` (or `JIRA_URL`/`JIRA_BASE_URL`), `JIRA_USER` (or `JIRA_EMAIL`), and `JIRA_TOKEN` (or `JIRA_API_TOKEN`) environment variables. The script fetches the issue, converts ADF to markdown, and writes it directly to `/tmp/rfe-assess/single/{KEY}.md`. Parse its output for `ENV_OK=false` / `ENV_MISSING=...` — if env vars are missing, prompt the user to set them (same guidance as Phase 0 of bulk mode). If the script succeeds, skip the Write step below since the script already wrote the file.
+  2. **Fallback to REST API:** If the MCP call fails (tool not available, connection error, or any other error), fall back to the Jira REST API by running `python3 ${CLAUDE_SKILL_DIR}/scripts/fetch_single.py {KEY}`. This requires `JIRA_SERVER` (or `JIRA_URL`/`JIRA_BASE_URL`), `JIRA_USER` (or `JIRA_EMAIL`), and `JIRA_TOKEN` (or `JIRA_API_TOKEN`) environment variables. The script fetches the issue, converts ADF to markdown, and writes it directly to `tmp/rfe-assess/single/{KEY}.md`. Parse its output for `ENV_OK=false` / `ENV_MISSING=...` — if env vars are missing, prompt the user to set them (same guidance as Phase 0 of bulk mode). If the script succeeds, skip the Write step below since the script already wrote the file.
 - **File path** (starts with `/` or `./` or `~`, or exists on disk): Read the file contents.
 - **URL** (starts with `http://` or `https://`): Fetch the content.
 - **Raw text**: Use the input directly as the content to assess.
 
 Then assess:
 1. Run `python3 ${CLAUDE_SKILL_DIR}/scripts/prep_single.py {KEY}` to clean up stale files and ensure the output directory exists. This removes any previous `.md` and `.result.md` for the key so Write sees them as new files.
-2. Write the fetched content to `/tmp/rfe-assess/single/{KEY}.md` using the same `# KEY: Title` format as the cache files. For non-Jira inputs, use a descriptive key (e.g., filename or `INPUT`). This is a separate directory from the bulk cache — never write single-mode files into `/tmp/rfe-assess/RHAIRFE/` as that would clobber cached bulk data. **Note:** If the REST API fallback (`fetch_single.py`) was used, the file is already written — skip this step.
-3. Spawn one background agent (model: opus, run_in_background: true, subagent_type: assess-rfe:rfe-scorer) using the same launch prompt as Phase 2, with `{DATA_FILE}` set to `/tmp/rfe-assess/single/{KEY}.md` and `{RUN_DIR}` set to `/tmp/rfe-assess/single`.
-4. Read the result from `/tmp/rfe-assess/single/{KEY}.result.md`, wrap it with a header, and present it to the user.
+2. Write the fetched content to `tmp/rfe-assess/single/{KEY}.md` using the same `# KEY: Title` format as the cache files. For non-Jira inputs, use a descriptive key (e.g., filename or `INPUT`). This is a separate directory from the bulk cache — never write single-mode files into `/tmp/rfe-assess/RHAIRFE/` as that would clobber cached bulk data. **Note:** If the REST API fallback (`fetch_single.py`) was used, the file is already written — skip this step.
+3. Spawn one background agent (model: opus, run_in_background: true, subagent_type: assess-rfe:rfe-scorer) using the same launch prompt as Phase 2, with `{DATA_FILE}` set to `tmp/rfe-assess/single/{KEY}.md` and `{RUN_DIR}` set to `tmp/rfe-assess/single`.
+4. Read the result from `tmp/rfe-assess/single/{KEY}.result.md`, wrap it with a header, and present it to the user.
 
 #### Bulk (`RHAIRFE-*`)
 
@@ -136,7 +136,7 @@ directory, progress, and these loop steps after every compaction.
 The full agent prompt is stored in `${CLAUDE_SKILL_DIR}/scripts/agent_prompt.md`. This is the single source of truth for the scoring rubric, calibration examples, and output format.
 
 - **Bulk mode:** Each agent reads the file itself at runtime (see Phase 2 launch prompt). The coordinator does NOT embed the rubric — this eliminates prompt drift from paraphrasing or abbreviation.
-- **Single-input mode:** Same launch prompt, with `{DATA_FILE}` set to `/tmp/rfe-assess/single/{KEY}.md` and `{RUN_DIR}` set to `/tmp/rfe-assess/single`. The agent writes its result there just like bulk agents.
+- **Single-input mode:** Same launch prompt, with `{DATA_FILE}` set to `tmp/rfe-assess/single/{KEY}.md` and `{RUN_DIR}` set to `tmp/rfe-assess/single`. The agent writes its result there just like bulk agents.
 
 ### Coordinator Output Format
 
@@ -167,8 +167,8 @@ Bulk — after Phase 3, present the summary analysis from the CSV to the user. I
 | `check_progress.py` | Reports completed vs total issues for a run directory (used by `dispatch_context.py`) |
 | `dispatch_context.py` | Post-compaction recovery: re-injects the active run's state and loop steps; invoked by the `SessionStart` compact hook (`hooks/hooks.json`) |
 | `parse_results.py` | Extracts scores from `.result.md` files into `scores.csv`; handles format variants |
-| `fetch_single.py` | Fetches a single Jira issue via REST API v3 (fallback for when MCP is unavailable), writes to `/tmp/rfe-assess/single/` |
-| `prep_single.py` | Cleans up stale data/result files for a key in `/tmp/rfe-assess/single/` before a single-mode run |
+| `fetch_single.py` | Fetches a single Jira issue via REST API v3 (fallback for when MCP is unavailable), writes to `tmp/rfe-assess/single/` |
+| `prep_single.py` | Cleans up stale data/result files for a key in `tmp/rfe-assess/single/` before a single-mode run |
 | `summarize_run.py` | Produces summary analysis from `scores.csv`: pass/fail rates, criteria averages, what-if analysis, near-misses |
 
 ### Required Permissions

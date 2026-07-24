@@ -19,7 +19,7 @@ def main():
         sys.exit(1)
 
     key = sys.argv[1]
-    single_dir = "/tmp/rfe-assess/single"
+    single_dir = "tmp/rfe-assess/single"
     os.makedirs(single_dir, exist_ok=True)
 
     for suffix in (".md", ".result.md"):
