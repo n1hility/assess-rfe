@@ -30,9 +30,13 @@ def make_request(url, user, token, body=None):
         raise
 
 
-def get_all_issues(server, user, token, project_key, batch_size=100):
+def get_all_issues(server, user, token, project_key, batch_size=100, issue_type=None):
     base = server.rstrip("/")
-    jql = urllib.parse.quote(f"project={project_key} ORDER BY key ASC")
+    jql_str = f"project={project_key}"
+    if issue_type:
+        jql_str += f' AND issuetype="{issue_type}"'
+    jql_str += " ORDER BY key ASC"
+    jql = urllib.parse.quote(jql_str)
     next_page_token = None
     while True:
         url = (
@@ -222,6 +226,11 @@ def main():
         default=default_token,
         help="Jira API token (or set JIRA_TOKEN env var)",
     )
+    parser.add_argument(
+        "--issue-type",
+        default=None,
+        help="Filter by issue type (e.g. Initiative)",
+    )
     args = parser.parse_args()
 
     server = args.server
@@ -237,7 +246,7 @@ def main():
     os.makedirs(output_dir, exist_ok=True)
 
     count = 0
-    for issue in get_all_issues(server, user, token, args.project):
+    for issue in get_all_issues(server, user, token, args.project, issue_type=args.issue_type):
         key = issue.get("key", "unknown")
         fields = issue.get("fields", {})
         summary = fields.get("summary", "")

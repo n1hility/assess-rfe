@@ -34,7 +34,7 @@ after this compaction, so trust the script output over memory.
 Loop (run scripts as simple commands; ${{CLAUDE_SKILL_DIR}} is the assess-rfe
 skill directory):
 1. next_action.py {run_dir} --batch-size 30
-2. ACTION=launch_wave: launch one background rfe-scorer agent per key listed
+2. ACTION=launch_wave: launch one background {agent_type} agent per key listed
    after the '---' (wave.txt is already written), then FOLLOW the NEXT: line —
    it tells you to run wait_wave.py {run_dir} --keys-file {run_dir}/wave.txt.
    Re-run wait_wave.py while it exits 3 (its NEXT: line repeats the command);
@@ -43,6 +43,11 @@ skill directory):
    kills the run.
 3. ACTION=done: the run is complete (scores.csv exists). Run
    summarize_run.py {run_dir} and present the summary."""
+
+AGENT_TYPES = {
+    "RHOAIENG": "initiative-scorer",
+}
+DEFAULT_AGENT_TYPE = "rfe-scorer"
 
 
 def _find_active_runs(assess_dir):
@@ -100,7 +105,8 @@ def main():
         print(f"TOTAL={total}")
         print(f"QUEUE_REMAINING={queued}")
         print()
-        print(LOOP_PROTOCOL.format(run_dir=run_dir))
+        agent_type = AGENT_TYPES.get(project, DEFAULT_AGENT_TYPE)
+        print(LOOP_PROTOCOL.format(run_dir=run_dir, agent_type=agent_type))
 
 
 if __name__ == "__main__":
