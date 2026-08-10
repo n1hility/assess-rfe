@@ -72,7 +72,7 @@ def extract_scores(text):
             score_m = re.match(r"^\s*(\d)\s*$", score_cell)
         score = int(score_m.group(1)) if score_m else None
 
-        crit = re.sub(r"[*_()\d/\-&]", " ", criterion).strip().lower()
+        crit = _normalize_criterion(criterion)
 
         if score is not None:
             for i, matcher in enumerate(matchers):
@@ -103,15 +103,44 @@ def extract_scores(text):
     return None
 
 
+def _normalize_criterion(cell):
+    """Strip markdown decoration and range hints from a criterion label.
+
+    ``**Scope** (0-2)`` -> ``scope``, ``**Not a task**`` -> ``not a task``.
+    """
+    return re.sub(r"[*_()\d/\-&]", " ", cell.lower()).strip()
+
+
+def _criterion_cells(text):
+    """Yield the normalized criterion (first) column of each markdown table row."""
+    for line in text.split("\n"):
+        ll = line.strip()
+        if not ll.startswith("|"):
+            continue
+        parts = [p.strip() for p in ll.split("|")]
+        if len(parts) < 3:
+            continue
+        yield _normalize_criterion(parts[1])
+
+
 def _detect_initiative(text):
     """Detect whether a result uses initiative criteria.
 
     Both RFE and initiative rubrics use WHAT/WHY/HOW/Right-sized.
     The distinguishing criterion is Scope (initiative) vs Not a task (RFE).
+
+    Both labels are normalized the same way the score loop normalizes them, so
+    the decorated forms the docstring above advertises (``| **Scope** (0-2) |``)
+    are recognized. Matching on the criterion column only — rather than any
+    ``|...|`` cell — keeps a rationale that happens to start with "scope" from
+    flipping an RFE result onto the initiative key set.
     """
-    lower = text.lower()
-    has_scope_row = bool(re.search(r"\|\s*scope\s*\|", lower))
-    has_task_row = bool(re.search(r"\|\s*\**not a task\**\s*\|", lower))
+    has_scope_row = has_task_row = False
+    for criterion in _criterion_cells(text):
+        if criterion.startswith("scope"):
+            has_scope_row = True
+        if "not a task" in criterion:
+            has_task_row = True
     return has_scope_row and not has_task_row
 
 
@@ -185,14 +214,33 @@ def main():
             }
         )
 
-    # Detect column set from first parsed result
-    if rows:
-        score_keys = [k for k in rows[0] if k not in ("ID", "Title", "Total", "Pass_Fail")]
-    else:
+    # Column set = union across all rows, ordered by first appearance. Taking it
+    # from rows[0] alone made a single odd row (rubric type is re-sniffed per
+    # file, so a malformed one can land on the other key set) raise mid-write,
+    # after the header and earlier rows had already been flushed — leaving a
+    # truncated but plausible-looking scores.csv that next_action.py accepts as
+    # a finished run. Widen the header instead, and say so.
+    fixed = ("ID", "Title", "Total", "Pass_Fail")
+    score_keys = []
+    for row in rows:
+        for k in row:
+            if k not in fixed and k not in score_keys:
+                score_keys.append(k)
+    if not score_keys:
         score_keys = RFE_KEYS
+
+    mixed = [r["ID"] for r in rows if any(k not in r for k in score_keys)]
+    if mixed:
+        names = ", ".join(mixed[:10])
+        print(
+            f"WARNING: this run mixes RFE and initiative criteria — {len(mixed)} of "
+            f"{len(rows)} result(s) leave some score columns blank: {names}",
+            file=sys.stderr,
+        )
+
     fieldnames = ["ID", "Title"] + score_keys + ["Total", "Pass_Fail"]
     with open(output_path, "w", newline="", encoding="utf-8") as f:
-        writer = csv.DictWriter(f, fieldnames=fieldnames)
+        writer = csv.DictWriter(f, fieldnames=fieldnames, restval="", extrasaction="ignore")
         writer.writeheader()
         writer.writerows(rows)
 

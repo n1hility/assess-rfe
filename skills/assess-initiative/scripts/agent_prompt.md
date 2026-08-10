@@ -71,8 +71,19 @@ You are an Initiative quality assessor. Read and score one Jira initiative.
 
 5. Right-sized — Single coherent effort?
    Default to a single initiative. An initiative is normally one overarching goal owned by one team (or a related group of teams), and may span many facets, problem areas, and deliverables — addressing several related problems under a common theme is exactly what it should do. Breadth is NOT a reason to split: the test is ownership and goal independence, not how many things the work touches. Split ONLY when the initiative is really a grab-bag of separate initiatives — each serving a DIFFERENT goal and ownable by a DIFFERENT, unrelated team or group, sharing a bucket rather than a mission. Facets of one transformation, phases toward one goal, or different skill areas all serving the same outcome stay together — as do items individually too minor to be their own initiative — even across different domains or personas.
-   - 0 = Bundles 3+ genuinely separate initiatives — different goals, different unrelated owning teams/groups, no unifying mission
-   - 1 = Bundles 1-2 separate initiatives alongside the main effort
+
+   Independence test. Two efforts are genuinely separate only if ALL of the following hold. If even one fails, they are facets of one initiative, not two:
+   - Different goals — not two contributions toward the same outcome.
+   - Ownable by a different, unrelated team or group — not one team wearing two hats. Judge by whether the effort could sit elsewhere, not by whether the description names an owner.
+   - Each is substantial enough to stand as its own initiative on its own merits.
+
+   Shared plumbing is not a shared goal: two efforts that reuse the same infrastructure can still be separate initiatives. Technical interdependence counts as coupling only alongside a shared owner and a shared mission.
+
+   Procedure. First list the candidate efforts you can identify. Apply the independence test to each pair and consolidate every pair that fails it. Score on what remains. Weigh what the text actually says: explicit separation language ("separately", "we also need", "in addition"), a different primary audience, a distinct named stakeholder, or a distinct stated driver all point toward a genuine second initiative. These are indicators, not requirements — two efforts serving the same audience can still be separate. Inferring separateness from breadth alone is not evidence.
+
+   When you are uncertain whether two efforts are genuinely separate, score 1, not 0. A wrong 0 breaks up a coherent initiative; a wrong 1 still surfaces the concern and leaves it to revision.
+   - 0 = Bundles two or more genuinely separate initiatives — each clears the independence test above, with no unifying mission
+   - 1 = Carries one or more adjacent efforts that are arguably separable but genuinely coupled — sharing owners, critical path, or mission — such that the independence test is contested rather than clearly met, and reasonable reviewers would disagree about splitting
    - 2 = Single coherent effort — one overarching goal owned by one team or related group (however many facets or problems it spans), or a container of individually-minor work; nothing that is a separate initiative in its own right
 
 ### Smell Tests
@@ -81,6 +92,7 @@ You are an Initiative quality assessor. Read and score one Jira initiative.
 - "Could someone accidentally add work that does not belong?" (Scope — weak boundaries invite scope creep)
 - "Can the team propose a different approach to achieve the same outcome?" (Open to HOW)
 - "Is this a grab-bag of separate initiatives with different goals owned by different, unrelated teams/groups — or facets of one mission? Breadth across domains/personas is not, by itself, a reason to split." (Right-sized)
+- "Does the text itself flag a second concern — 'separately', 'we also need', a different named stakeholder, a different stated driver — or am I inferring the split from breadth alone?" (Right-sized — evidence of separateness)
 
 ### Calibration Examples
 
@@ -119,8 +131,10 @@ You are an Initiative quality assessor. Read and score one Jira initiative.
 
 #### Right-sized
 - R=0: "Modernize CI/CD pipelines, add GPU monitoring dashboards, and implement cost allocation reporting." — three unrelated efforts with no unifying goal; a grab-bag of separate initiatives, not one mission.
-- R=1: "Build a notification platform AND add user preference management for dashboard layouts." — notifications and dashboard preferences serve different goals and could ship independently.
+- R=0: "Give data scientists a self-service way to request GPU quota increases instead of filing tickets and waiting on an admin. Separately, we also need chargeback reporting for Finance — per-team GPU cost attribution, monthly statements, and a budget-alerting workflow, driven by the FY27 cost-recovery mandate." — only two efforts, but both clear the independence test: different goals (removing request toil vs. recovering cost), ownable by different groups (platform access vs. financial reporting), and each large enough to stand alone. Supporting indicators: the text flags the separation itself ("Separately, we also need"), and the audiences and drivers differ (data scientists blocked on tickets vs. Finance under a mandate). That both read the same GPU usage data is shared plumbing, not a shared mission.
+- R=1: "Migrate the platform's build and release pipelines to Konflux, and deliver a release-health dashboard." — the case runs both ways. For separate: the dashboard is substantial, serves visibility rather than delivery, and could plausibly be owned elsewhere. For one initiative: it exists largely to show the migration worked, so it arguably serves the same release-health outcome. Neither reading is clearly right, so the independence test is contested rather than met — score 1, not 0.
 - R=2: "Transition the team's DevOps and TestOps to an AIOps model — predictive CI/CD failure detection, AI-driven test selection, anomaly detection for incidents, and AI-assisted runbooks." — one team, one overarching goal (a unified AIOps practice); the pieces are facets of a single transformation, not separate initiatives. Breadth across CI/CD, test, and incident domains is not a split signal.
+- R=2: "Build a notification platform, and let users set per-account preferences for dashboard layout." — the layout preference serves the same users through the same surface and is not substantial enough to be its own initiative. A second deliverable is not a second initiative. (Contrast the chargeback R=0 above: there the second effort has its own audience, its own driver, and its own scale.)
 - R=2: "Build an end-to-end notification platform with event bus, delivery channels, and in-app panel." — tightly coupled: the panel without delivery is useless; delivery without the bus has no source. Single coherent effort.
 - R=2: "Deliver GPU utilization dashboards with idle-resource alerting and cost attribution." — dashboards without alerting have limited value; cost attribution requires the same data pipeline. Tightly coupled workstreams.
 - R=2: "Standing tech-debt burndown — CI/CD flake triage, minor tooling upgrades, runbook docs; a container for miscellaneous improvements that individually do not warrant their own initiative." — connected small work under one theme; nothing large or independent enough to split off. (Contrast R=0 above: there the three efforts are each large and independent.)

@@ -149,7 +149,7 @@ Bulk — after Phase 3, present the summary analysis from the CSV to the user. I
 - Total assessed, passed, failed, pass rate
 - Score distribution
 - Criteria averages and zero-score counts
-- What-if analysis (e.g., "if Problem Statement 0→1, N more would pass")
+- What-if analysis (e.g., "if Scope 0→1, N more would pass")
 - Top near-miss failures (high scores but auto-failed by a zero)
 
 ### Scripts Reference
@@ -157,7 +157,7 @@ Bulk — after Phase 3, present the summary analysis from the CSV to the user. I
 | Script | Location | Purpose |
 |--------|----------|---------|
 | `agent_prompt.md` | `${CLAUDE_SKILL_DIR}/scripts/` | Initiative scoring rubric and instructions — use verbatim |
-| `dump_jira.py` | `../assess-rfe/scripts/` | Fetches issues from a Jira project via REST API v3; use `--issue-type Initiative` to filter |
+| `dump_jira.py` | `../assess-rfe/scripts/` | Fetches issues from a Jira project via REST API v3; use `--issue-type Initiative` to filter. Prunes cached files the fetch did not write, so a leftover unfiltered dump cannot feed Epics and Stories into the queue (`--no-prune` to keep them) |
 | `preflight.py` | `../assess-rfe/scripts/` | Checks env vars, cache state, and current run status |
 | `setup_run.py` | `../assess-rfe/scripts/` | Creates timestamped run directory with resume support |
 | `next_action.py` | `../assess-rfe/scripts/` | Authoritative bulk-loop driver |
@@ -202,3 +202,10 @@ Add to your user or project `.claude/settings.json`:
 ```
 
 `<ASSESS_RFE_SKILL_PATH>` is the absolute path to the `skills/assess-rfe/` directory. `<SKILL_PATH>` is the absolute path to the `skills/assess-initiative/` directory. The `additionalDirectories` entries allow agents to read the scoring rubric and scripts, and read/write cached issues and results in `/tmp/rfe-assess/`.
+
+Write the shared-script entries as collapsed absolute paths, not
+`<SKILL_PATH>/../assess-rfe/scripts/`: the loop scripts emit their `NEXT:` commands in
+collapsed form, the matcher does not resolve `..`, and those `NEXT:` commands are what
+runs on every wave. One entry per script — a directory-only prefix does not authorize
+the scripts under it. The `${CLAUDE_SKILL_DIR}` commands in the steps above match no
+entry in any form and prompt once each, the same as in `assess-rfe`.

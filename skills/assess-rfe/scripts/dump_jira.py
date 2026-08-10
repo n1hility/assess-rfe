@@ -1,5 +1,15 @@
 #!/usr/bin/env python3
-"""Dump titles and descriptions of every issue in a Jira project to a file."""
+"""Dump titles and descriptions of every issue in a Jira project to a file.
+
+The cache directory is keyed on project alone, so a filtered dump
+(``--issue-type Initiative``) writes alongside whatever an earlier unfiltered
+dump of the same project left behind. setup_run.py then queues every ``.md`` it
+finds, so those leftovers get scored — and since RHOAIENG holds Epics and
+Stories as well as Initiatives, they are scored against the initiative rubric
+and produce plausible-looking rows. By default this script therefore prunes
+cached files its own fetch did not write, keeping the cache equal to the query
+that produced it. Pass ``--no-prune`` to keep them.
+"""
 
 import argparse
 import base64
@@ -192,6 +202,32 @@ def adf_to_markdown(node, list_depth=0):
     return adf_to_markdown(content, list_depth)
 
 
+def prune_stale(output_dir, written, owned):
+    """Remove cached .md files this fetch did not write.
+
+    ``owned`` is False for a user-supplied --output-dir; that directory is
+    reported on but never deleted from, since this script did not choose it.
+    """
+    stale = sorted(
+        f for f in os.listdir(output_dir) if f.endswith(".md") and f[: -len(".md")] not in written
+    )
+    if not stale:
+        return
+    names = ", ".join(stale[:10])
+    more = f" (+{len(stale) - 10} more)" if len(stale) > 10 else ""
+    if not owned:
+        print(
+            f"WARNING: {len(stale)} file(s) in {output_dir} are not part of this fetch and "
+            f"will still be queued for assessment: {names}{more}",
+            file=sys.stderr,
+        )
+        print("  Remove them, or drop --output-dir to let this script prune.", file=sys.stderr)
+        return
+    for name in stale:
+        os.remove(os.path.join(output_dir, name))
+    print(f"Pruned {len(stale)} file(s) left by an earlier dump: {names}{more}", file=sys.stderr)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("project", help="Jira project key (e.g. PROJ)")
@@ -231,6 +267,11 @@ def main():
         default=None,
         help="Filter by issue type (e.g. Initiative)",
     )
+    parser.add_argument(
+        "--no-prune",
+        action="store_true",
+        help="Keep cached issue files this fetch did not write (default: remove them)",
+    )
     args = parser.parse_args()
 
     server = args.server
@@ -245,6 +286,7 @@ def main():
     output_dir = args.output_dir or os.path.join("/tmp/rfe-assess", args.project)
     os.makedirs(output_dir, exist_ok=True)
 
+    written = set()
     count = 0
     for issue in get_all_issues(server, user, token, args.project, issue_type=args.issue_type):
         key = issue.get("key", "unknown")
@@ -254,11 +296,26 @@ def main():
         filepath = os.path.join(output_dir, f"{key}.md")
         with open(filepath, "w", encoding="utf-8") as f:
             f.write(f"# {key}: {summary}\n\n{description}\n")
+        written.add(key)
         count += 1
         if count % 100 == 0:
             print(f"  {count} issues dumped...", file=sys.stderr)
 
     print(f"Wrote {count} issues to {output_dir}/", file=sys.stderr)
+
+    if args.no_prune:
+        pass
+    elif not written:
+        # A query that returned nothing is far more likely to be a bad filter or
+        # an auth blip than a genuinely empty project — never let it empty the
+        # cache out from under an in-flight run.
+        print(
+            "No issues returned; leaving the existing cache alone. "
+            "Check the project key, --issue-type, and credentials.",
+            file=sys.stderr,
+        )
+    else:
+        prune_stale(output_dir, written, owned=args.output_dir is None)
 
 
 if __name__ == "__main__":

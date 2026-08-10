@@ -39,7 +39,17 @@ def load_scores(path):
                 criteria = RFE_CRITERIA
         for row in reader:
             for col in criteria + ["Total"]:
-                row[col] = int(row[col])
+                raw = (row.get(col) or "").strip()
+                if not raw:
+                    # parse_results.py widens the header when a run mixes rubric
+                    # types, leaving blanks rather than truncating the file.
+                    print(
+                        f"ERROR: {path} row {row.get('ID')} has no {col} score — this run "
+                        f"mixes RFE and initiative results; split them into separate runs",
+                        file=sys.stderr,
+                    )
+                    sys.exit(1)
+                row[col] = int(raw)
             rows.append(row)
     return rows, criteria
 
